@@ -28,4 +28,3 @@ if __name__ == '__main__':
             print("Invalid selection. Please use only integers!")
 
     set_params(range_stop, parts)
-
