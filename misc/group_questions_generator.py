@@ -6,7 +6,7 @@ def partition(list_in, n):
     random.shuffle(list_in)
     shuffled = [list_in[i::n] for i in range(n)]
     for i in range(n):
-        print(f"User {i+1}: {shuffled[i]}")
+        print(f"User {i+1}: {sorted(shuffled[i])}")
 
 
 def set_params(range_stop, parts):
