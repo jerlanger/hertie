@@ -1,5 +1,8 @@
 /venv/
 /*/*/.DS_Store
+/stats2/assignments/*/local/
+/status2/assignments/*/*.html
+/status2/assignments/*/*.pdf
 
 # User-specific stuff
 .idea/**/workspace.xml

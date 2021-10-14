@@ -78,7 +78,7 @@ Where $Z$ represents the vector of all selected variables that would make the ex
 In this problem, you will be asked a series of questions about an article by Salma Mousa, "Building social cohesion between Christians and Muslims through soccer in post-ISIS Iraq", which was published last year in *Science* (vol. 369, pp 866-870). Read through the questions in this task and then read the paper with an eye to finding the answers.
 
 Terminology that you may find useful:  
-- **stratified sampling**: when the population is divided into ``strata'' or sub-groups (e.g., men and women) and then sampling is done *within* the strata.  
+- **stratified sampling**: when the population is divided into ``strata`` or sub-groups (e.g., men and women) and then sampling is done *within* the strata.  
 - **block randomization**: when the *sample* is divided into blocks and randomization of treatment happens within the blocks (e.g., randomly assigning $T$ vs $C$ for men and women separately).
 
 a) Identify *D* (the treatment) and all *Y* (outcome) variables as explained by Mousa. [5 points]
