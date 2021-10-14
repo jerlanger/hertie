@@ -1,0 +1,325 @@
+---
+title: "Assignment 2 - Experiments and Matching"
+author: "Joseph Erlanger"
+date: "`r format(Sys.time())`"
+output:
+  pdf_document:
+    toc: no
+  html_document:
+    code_folding: hide
+    df_print: paged
+    highlight: tango
+    number_sections: no
+    theme: cosmo
+    toc: no
+---
+  
+<style>
+div.answer {background-color:#f3f0ff; border-radius: 5px; padding: 20px;}
+</style>
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+\newcommand{\ci}{\perp\!\!\!\perp}
+
+
+### Task 0. Set your working directory and load packages
+
+Set your working directory and load the packages that you need.
+```{r, include = F}
+setwd("/Users/josepherlanger/PycharmProjects/hertie/stats2/assignments/assgn2/")
+
+check.packages <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE,
+                     repos = "https://cran.rstudio.com")
+  sapply(pkg, require, character.only = TRUE)
+}
+
+check.packages(c("tidyverse","MatchIt","broom","kableExtra","stargazer"))
+```
+
+### Task 1 - Questions about the literature [10 points in total]
+
+a) Please explain the idea of “common support” in your own words. [5 points]
+
+<div class = "answer"> 
+Common support is the concept that there must be some probability ($0 < Pr(D=1|X) <1$) for a variable to be in the treatment group in order to be included in matching. The example given in the class illustrates this well. When looking for effects of pregnancy between groups, it would not be useful to include male subjects.
+
+In practice, this means that common support is the shared area in distributions between two populations (the overlap). Distributions with large covariate overlaps have lots of common support while distinct ones will have none.
+</div> 
+<br>
+
+b) Briefly explain, in your own words, what *conditional independence* means and and its role in helping us estimating a causal effect when there are confounders? [5 points]
+
+
+<div class = "answer"> 
+Conditional independence is the concept of controlling for all common causes (confounding variables) between treatment and outcome groups so that there is no difference in potential outcomes $\{Y^1,Y^0\}$. By controling for all relevant variables, one can assert that assignment between treatment and control is random and then evaluate the effect of treatment.
+
+In math notation it's written:
+$$E[Y^1|D=1,Z] = E[Y^1|D=0,Z]\\E[Y^0|D=1,Z] = E[Y^0|D=0,Z]$$
+
+Where $Z$ represents the vector of all selected variables that would make the expected value of treatment and control ($\{Y^1,Y^0\}$) be identical regardless of whether one is in the control or treatment groups ($D=\{0,1\}$).
+</div> 
+
+
+---
+
+### Task 2 - Building social cohesion [25 points in total]
+
+In this problem, you will be asked a series of questions about an article by Salma Mousa, "Building social cohesion between Christians and Muslims through soccer in post-ISIS Iraq", which was published last year in *Science* (vol. 369, pp 866-870). Read through the questions in this task and then read the paper with an eye to finding the answers.
+
+Terminology that you may find useful:  
+- **stratified sampling**: when the population is divided into ``strata'' or sub-groups (e.g., men and women) and then sampling is done *within* the strata.  
+- **block randomization**: when the *sample* is divided into blocks and randomization of treatment happens within the blocks (e.g., randomly assigning $T$ vs $C$ for men and women separately).
+
+a) Identify *D* (the treatment) and all *Y* (outcome) variables as explained by Mousa. [5 points]
+
+<div class = "answer"> 
+The D in this experiment is whether or not an Iraqi Christian was on a mixed football team (e.g. had 25% Muslim teammates) or not.
+
+Mixed teams in this case was the treatment while unmixed was the control. Additionally, the author had a separate league with no mixed teams to perform comparison exploratory analyses on the "experimental" leagues.
+
+The Y in the experiment is broadly described as players' attitudes and behaviors towards Muslims. The attitudes are captured in a survey given at the start and end of the experiment. Behaviors are captured in in-group outcomes and out-group outcomes.
+
+**In-Group Outcomes**<br>
+<ul>
+<li>Train with Muslims once a week (6 months post-intervention)
+<li>Vote (another team's) Muslim player for MVP award
+<li>Register for mixed team again (2 weeks to 5 months post-intervention)
+</ul>
+**Out-Group Outcomes**<br>
+<ul>
+<li> Visit Muslim restaurant in Mosul (within 4 months post-intervention)
+<li> Attend mixed dinner event and bring female family members (within 5 months post-intervention)
+<li> Donate $1 survey compensation to local church or religiously neutral NGO
+</ul>
+</div><br>
+
+b) What is Mousa's randomization strategy (that is, what does she randomize over)? [10 points]
+
+<div class = "answer"> 
+Mousa's randomization strategy was to invite only christian teams for four soccer leagues. Then after having each player take a survey on "perceived commonalities with Muslims", they ranked each team by the mean response and then performed block randomization of the teams within closely ranked pairs. This was, I assume, to reduce the chance that Muslim players were assigned only to overly biased teams, and increase comparison opportunities post-experiment.
+</div><br>
+
+c)  If you were a policy advisor to an aid organization that had seen these findings and wanted your views on whether this study had successfully uncovered causal effects, what would you tell them? (1-2 sentences) [5 points]
+
+<div class = "answer"> 
+I would agree that the study uncovered causal effects. The author demonstrates a sizable (and statistically significant) improvement for inter-religious relationships, but only within a narrow scope (social sports) and effect (in-group).
+</div><br>
+
+d) If you were a policy advisor to an aid organization considering using various kinds of social settings (akin to soccer leagues) to build social cohesion across different groups in post-conflict settings, would you recommend that they do it based on these findings? Why or why not? (1-2 sentences) [5 points]
+
+<div class = "answer"> 
+It depends on the context. If it was for something where outside social pressures are suspended, like temp displacement camps, then building cohesion among the groups in this way could be beneficial. However, if it is for broader society, no. The effect is akin to "you're a *good* immigrant" or "Some of my best friends are black" tropes-- positive exposure to a few out-group members doesn't usually transform views towards the out-group as a whole.
+</div><br>
+
+---
+
+### Task 3 - Building social cohesion, continued. [65 points in total]
+
+In this problem you will analyze the data in the `social_cohesion.csv` file. We will focus on the treatment effect of having Muslim players on your team, which appears in the data as `treated`, on whether a team member registered for a mixed team in the next season, `own_group_preference`. The code book is available on Moodle and contains the names and coding rules for every variable in the dataset.
+
+Mousa does not use matching techniques in her paper, but let's experiment with what that might look like.
+
+
+a) Read in Mousa's dataset and convert the variable ``block`` to a character vector. Then check covariate balance on the following variables that Mousa uses as controls in her analysis: `edu`, `church`, `income`,`status1`, `marital`, `isis_abuse`, `birth.year` in the unmatched dataset. Your output should be in the form of a balance table. Based on your table, would you say that Mousa's dataset is well-balanced? Are there any important differences between the treatment and control groups? [10 points]
+
+```{r}
+df <- read.csv("local/social_cohesion.csv") %>%
+  mutate(block = as.character(block))
+
+list_cov = c("edu","church","income","status1","marital","isis_abuse","birth.year")
+
+df %>%
+  dplyr::summarize_at(list_cov, funs(list(broom::tidy(t.test(. ~ treated))))) %>%
+  purrr::map(1) %>%
+  dplyr::bind_rows(.id="variables") %>%
+  dplyr::select(variables, estimate1, estimate2, p.value) %>%
+  dplyr::mutate_if(is.numeric, round, 3) %>%
+  knitr::kable(col.names = c("Variable",
+                             "Control (Treated = 0)",
+                             "Treat (Treated = 1)",
+                             "P value")) %>% 
+  kableExtra::kable_styling(full_width=T, position="left")
+```
+
+<div class = "answer"> 
+The dataset is relatively well-balanced across the control variables with the exception of the `church` variable. The difference between the control and the treated groups is pretty large (~0.44) and with a p-value of 0.044 it is within the 0.05 tolerance to be considered significant. This means that control players self-report going to church, on average, more frequently than their treated peers. It's imaginable that increased participation in in-group activities could affect perception of out-group members.
+</div> <br>
+
+b) Using a simple linear model as a difference-in-means estimator, gather the naive average treatment effect (or Simple Difference in mean Outcomes) of treatment on `own_group_preference`. [10 point]
+
+```{r}
+slm <- lm(own_group_preference ~ treated, data = df)
+tidy(slm)[2,"estimate"] %>%
+  knitr::kable(col.names = "Naïve Average Treatment Effect") %>%
+  kableExtra::kable_styling(full_width=F, position="left")
+```
+
+c) Replicate Mousa's main regression model using the lm() function and `own_group_preference` as the DV. Her independent variables (not listed in the paper) are the ones listed above in addition to `block` and `player_type`. Note that the variable `block` is coded as a character vector and you should leave it as such in your regression (this means that each block will have its own separate variable in the regression output; these are so-called *fixed effects* that we will discuss in more detail later). Interpret the effect of the treatment variable and of the variable `church`. Does the treatment effect match the one described in the article (you can compare either to Fig. 1 or to the discussion in the text). [10 points]
+
+```{r}
+mrm <- lm(own_group_preference ~ block + 
+            player_type + 
+            edu + 
+            church + 
+            income + 
+            status1 + 
+            marital + 
+            isis_abuse + 
+            birth.year + 
+            treated, data=df)
+filter(tidy(mrm), term %in% c("church","treated")) %>%
+  select("term","estimate","std.error","p.value") %>%
+  knitr::kable(col.names = c("Indepdent Variable","Treatment Effect","Std Error","P Value")) %>%
+  kableExtra::kable_styling(full_width=F, position="left")
+```
+
+<div class = "answer">
+The effect of attending church and being treated are both positive towards `own_group_preference`, with the effect of church being +4.4% (±2.1%) towards "would-not-mind or prefer mixed" per self-reported church level. 
+
+The effect + standard error of treated is within the tolerance of the paper. The paper gave the stated effect as +13%, whereas this regression is +12.6% (±7.7%). However, the paper gives a p-value of 0.044 and the regression above has a p-value of 0.1 which would indicate it's not significant.
+</div><br>
+
+d) You notice that Mousa's sample contains not only the players on the teams but also the coaches and the players added as part of the treatment. Given that the paper discussion the effect on players, you decide to re-estimate the model above using a subset of data that includes only the core team members. Show your re-estimated model below (include also whatever code you used to subset the data). Do the results change? If so, how? [5 points]
+
+```{r}
+df_ogs <- filter(df, player_type == "Original")
+
+mrm_og <- lm(own_group_preference ~ block + 
+               edu + 
+               church + 
+               income + 
+               status1 + 
+               marital + 
+               isis_abuse + 
+               birth.year + 
+               treated, data=df_ogs)
+filter(tidy(mrm), term %in% c("church","treated")) %>%
+  select("term","estimate","std.error","p.value") %>%
+  knitr::kable(col.names = c("Indepdent Variable","Treatment Effect","Std Error","P Value")) %>%
+  kableExtra::kable_styling(full_width=F, position="left")
+```
+<div class = "answer">
+Since player_type was already a covariate considered in the first regression, filtering for only "Original" player types has no effect on the output in this second regression.
+</div><br>
+
+e) Choose some covariates (they can be ones Mousa used in her regressions but they do not have to be) on which to perform an exact match, and then do so, using the `MatchIt` package. Report an estimate of the average effect of treatment on `own_group_preference`. [10 points]
+
+```{r}
+exact_match_df <- df %>%
+  select(own_group_preference,edu,church,income,status1,marital,isis_abuse,birth.year, treated) %>%
+  na.omit()
+
+exact_match <- MatchIt::matchit(treated ~ edu + 
+                                  church + 
+                                  income + 
+                                  status1 + 
+                                  marital + 
+                                  isis_abuse + 
+                                  birth.year,
+                                method = "exact",
+                                data = exact_match_df)
+
+summary(exact_match)
+```
+<div class = "answer">
+By doing exact matching on the same covariates as the study we have disregarded almost all of the data points (Control 128 -> 13, Treated 104 -> 11) which indicates little common support.
+</div>
+```{r}
+em_df <- MatchIt::match.data(exact_match)
+
+em_model <- lm(own_group_preference ~ treated, data = em_df)
+stargazer::stargazer(em_model, type="text")
+```
+<div class = "answer">
+The effect of `treated` on `own_group_preference` is now much larger (at 0.587 instead of 0.137) and is now seen as statistically significant. However, it was at the loss of most observations, which makes the outcome dubious.
+</div><br>
+
+f) Repeat the analysis from **e)** using coursened exact matching instead of exact matching. Again report an estimate of the average effect of treatment on `own_group_preference`. [5 points]
+
+```{r}
+cem <- MatchIt::matchit(treated ~ edu + 
+                          church + 
+                          income + 
+                          status1 + 
+                          marital + 
+                          isis_abuse + 
+                          birth.year,
+                                method = "cem",
+                                data = exact_match_df)
+
+summary(cem)
+#better match (128 -> 37, 104 -> 34) but still not great
+
+cem_df <- MatchIt::match.data(cem)
+
+cem_model <- lm(own_group_preference ~ treated, data = cem_df)
+stargazer::stargazer(cem_model, type="text")
+```
+<div class = "answer">
+By moving to coarsened exact matching, we improved the number of matches by ~3x (although still only ~30% of all observations). By doing so, we lowered the expected benefit of `treated` upon `own_group_preference`, which is now at 0.355 vs. 0.587 (exact match) and 0.137 (NATE). My assumption is that we are still excluding data points which the author included in their analysis.
+</div><br>
+
+g) Use a package that renders well-formatted regression tables (e.g., `stargazer`) to print the three models you have. What do you find? How do your findings compare on the a) naive, b) exact matched, and c) coarsened exact matching models? [15 points]
+
+```{r}
+stargazer::stargazer(slm, em_model, cem_model, 
+                     type="text", 
+                     column.labels = c("simple linear","exact match","coarsened exact match"))
+```
+
+<div class = "answer"> 
+As explained in the answers above, the NATE is closest to what is found in the paper, but is less statistically significant than the other models (although still $<0.05$). Exact match has the most pronounced effect of `treated` on `own_group_preference`, but it has such little common support (24 observations!) that I would question the validity of the finding. Coarsened exact match's effect is between the two other options, but is also still only including 30% of the original observations. The trend appears to be that the more observations included, the reduced effect of being treated is upon the group and the larger the effect of the constant.
+
+Below I try again using fewer covariates to see if I can reduce the spread between the three models.
+</div><br>
+
+``` {r}
+# Attempting to balance only for covariates that are statistically significant (church) 
+# or have outsize diff in means and lower p-value (birth.year + status).
+
+em_church <- MatchIt::matchit(treated ~ church + birth.year + status1,
+                                method = "exact",
+                                data = exact_match_df)
+cem_church <- MatchIt::matchit(treated ~ church + birth.year + status1,
+                                method = "cem",
+                                data = exact_match_df)
+
+em_church_df <- MatchIt::match.data(em_church)
+cem_church_df <- MatchIt::match.data(cem_church)
+
+em_church_model <- lm(own_group_preference ~ treated, data = em_church_df)
+cem_church_model <- lm(own_group_preference ~ treated, data = cem_church_df)
+
+stargazer::stargazer(slm, em_church_model, cem_church_model, 
+                     type="text", 
+                     column.labels = c("simple linear","reduced_cov (em)","reduced_cov (cem)"))
+```
+
+<div class = "answer">
+When I reduced the covariates down to only those which were unbalanced and had lower p-values from their t-tests earlier (church, status1, birth.year), the effect of `treated` upon `own_group_preference` was greatly reduced and the number of valid observations was greatly improved.
+</div>
+
+---
+
+### Task 4 - Final thoughts [1 bonus point]
+
+a)  Does your analysis make you want to revise any of your answers from Task 2? Why/why not?
+
+<div class = "answer"> 
+No, it doesn't. As elaborated in 2d, I think the effect is capturing an effect that is pretty well understood anecdotally. That limited positive exposure to out-group members doesn't translate to overall positive opinion towards that out-group. Especially when the power imbalance between the two is artificially flipped in the experiment.
+
+Additionally, while it was a well done research paper, I had some unresolved questions which made me skeptical of the overall findings. They informed the teams that this is being conducted by a US university, which raises the possibility that players were biased from the outset. Given the highly controversial history of the USA in Iraq, those who are willing to participate with a US study may not be representative of the overall population. Being anti-ISIS doesn't mean you are pro-US.
+
+I also am curious about how they divided up the Muslim players. The paper (and data) treats them more or less as a homogenous group but there are stark differences (power, history, ethnic, exposure in the north) between Shi'a and Sunni in Iraq that could be influential and the author never really addresses. 
+</div>

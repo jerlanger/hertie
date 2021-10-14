@@ -1,0 +1,296 @@
+---
+title: "Assignment 1 - The Potential Outcomes Framework and DAGs"
+author: "Joseph Erlanger"
+date: "Fall 2021"
+output:
+  pdf_document:
+    toc: no
+  html_document:
+    code_folding: hide
+    df_print: paged
+    highlight: tango
+    number_sections: no
+    theme: cosmo
+    toc: no
+---
+  
+<style>
+div.answer {background-color:#f3f0ff; border-radius: 5px; padding: 20px;}
+</style>
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+```{r, include=FALSE}
+# Custom function to install needed packages, if they're not
+# already installed on your machine
+check.packages <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE,
+                     repos = "https://cran.rstudio.com")
+  sapply(pkg, require, character.only = TRUE)
+}
+
+check.packages(c("tidyverse", "ggdag", "haven", "dagitty"))
+```
+
+
+
+This assignment is due on September 29, 2021 at 12hrs.
+
+**Instructions:**
+
+1. Download the .Rmd file and all the accompanying files on Moodle.
+
+2. Work on your computer with the .Rmd file (as you did in the labs). 
+
+3. When you are ready upload **BOTH** the .pdf file you knitted AND the .Rmd file to Moodle in the section of the Assignment.Make sure to show all your R code in the .pdf file. This will facilitate grading.
+
+***
+
+### Task 1 - DAGs [20 points in total]
+
+a) What differentiates a directed, or causal, path from other paths in a directed acyclic graph (DAG)?
+
+<!--  During this course, we will input our answers that include text inside the tag, as follows:
+-->
+
+<div class = "answer"> 
+
+Directed, or causal, paths in a DAG imply a direct and one-way causal relationship between the two nodes connected by the edge. The direction of this relationship is determined by the arrow, with the parent influencing the child. This is different from other paths in a DAG because they cannot be bi-directional nor can they contain a feedback loop.
+
+</div> 
+
+---
+
+### Task 2 - Confounders and DAGs [20 points in total]
+
+```{r, echo = F, out.width="60%", fig.align="center"}
+knitr::include_graphics("pet-plot.png") #this chunk is just to upload the image
+```
+
+The scatterplot shows the relationship between the average weight and daily sleep of 1000 pets. An online site is using this plot to advertise their new supplement, *Life - Survival Shield X-2*. The owner of the site, Alex, claims that the supplement can help owners manage the weight of the pets by controling their sleep cycle. 
+
+a) Load the `animals_df.csv` into an object called `animals_df` and present a similar scatterplot with an additional dimension — `animal` — as the color argument in `ggplot2`  [10 points]
+
+Hint1: Since the data is a .csv file, you need to use the function read_csv from the readr package. 
+Hint2: The plot is very similar to the one seen in the lab. Except that now x=weight, y=daily_sleep and color=animal. 
+
+```{r}
+
+df = read.csv("animals_df.csv")
+
+ggplot(data = df,
+       aes(x = weight,
+           y = daily_sleep)) +
+  geom_point(aes(color=animal)) +
+  labs(title = "Relationship of Sleep and Weight by Animal",
+       x = "Weight (g)",
+       y = "Daily Sleep (hrs)") +
+  geom_smooth(method = "lm", se = FALSE, color = "gray50")
+```  
+
+
+```{r, out.width="70%",fig.align="center", message = F}
+       
+```  
+
+
+       
+b) Provide a brief explanation of how this relationship may be subject to **omitted variable bias** and lay it out in DAG form with `ggdag`  [10 points]
+
+<!-- During this course, we will input our answers that include text inside the tag, as follows:
+-->
+<div class = "answer"> 
+There are two possible omitted variables that come to mind as possible issues for bias.
+
+The first is the species itself. All animals have specific ranges of weights and sleep schedules that are independent of other species. A pet fish will almost never weigh as much as a dog and fish have different sleep requirements than mammals. A regression across all species implies otherwise.
+
+The second is that there is no control for age of the pet. Assuming that younger pets weigh less and need more sleep, not controlling for it is simply confounding age with weight.
+</div> 
+
+```{r, out.width="70%"}
+# I cannot figure out how to do dashed lines or boxes with ggdag
+# s = species type, a = age
+# D = daily sleep, y = weight
+dag <- dagify(y ~ D + s + a, D ~ a + s)
+
+ggdag(dag, layout="circle")
+```  
+
+---
+
+
+### Task 3 - Potential outcomes framework [30 points in total]
+
+a) What is regarded as fundamental problem of causal inference?  [15 points]
+
+<!-- <!-- During this course, we will input our answers that include text inside the tag, as follows:
+-->
+
+<div class = "answer">
+The fundamental problem of causal inference is that estimating the impact of a causal relationship requires measuring two states of existence (with the treatment and with the control) for one subject simultaneously, which is impossible. There will always be data missing.
+
+Additionally, deducing causal relationships requires controlling for all exogenous variables, both known and unknown, to ensure that there is no variable which is influencing both the parent and child in the relationship.
+</div>
+
+
+b) Define the following terms in your own words [15 points]: 
+
+  - Individual treatment effects (ITEs)
+  - Average treatment effect (ATE) 
+  - Naive average treatment effect (NATE) 
+  - Baseline, or selection, bias 
+  - Differential treatment effect, or heterogeneous treatment effect, bias
+
+<!-- During this course, we will input our answers that include text inside the tag, as follows:
+-->
+
+<div class = "answer">
+
+* ITE: What happens to an individual if they recieve the treatment versus if they don't recieve the treatment. Non-observable due to the fundamental problem of causal inference (Y_0 and Y_1) 
+* ATE: The average ITE across a population.
+* NATE: Expected value of the treatment conditional on being treated minus the expected value of not being treated conditional on being in the control group. It is naive because it does not account for either baseline or DTE bias.
+* Baseline Bias: The value difference in both the treatment and control group if neither group was selected for treatment. If a difference exists, then there is a bias between the groups that will skew any measurement of the NATE.
+* DTE Bias: The average treatment effect between those under treatment and those under control, weighted by the proportion of the population in the control state.
+
+</div>
+
+
+
+---
+
+### Task 4 - Bringing it all together [30 points in total]
+
+A research group is interested in the effects that receiving a **private high school education** has on the students' **earnings**. 
+
+The researchers gathered the incomes for the 2020 tax-year of all 4000 high school gradutes of 2010 in the city of Shelbyville. They researchers claim that **attending a private high school results in an average increase of around €7400 of the yearly income of students.** 
+
+You are a bit skeptical of the results. Fortunately, you can observe the potential outcomes of 4000 students under the two states of interest. In other words, you have data for the expected incomes of students in a reality where they went to private school $(private=1)$, as well as one where they attended a public institution $(private=0)$.
+
+The data\footnote{These are simulated data.} are stored in the `earnings_df.dta` file and contain the following information:
+
+* `subject_id`: identification number for each student
+* `treatment_state`: binary marker for actual treatment state
+* `income_0`: potential income under (private=0)
+* `income_1`: potential income under (private=1)
+* `observed_income`: income observed in reality
+
+Complete the following tasks utilizing the `earnings_df.dta` and your newly attained data manipulation skills with `dplyr`:
+
+a)  Load the `earnings_df.dta` into an object called `earnings_df` [1 points]
+
+```{r}
+earnings_df <- read_dta("earnings_df.dta") %>%
+  mutate("treatment_effect" = income_1 - income_0)
+head(earnings_df)
+```  
+
+b)  Extract the following quantities of interest with `dplyr` functions. If the output is more than a single number, provide the first ten elements:
+
+  - Individual treatment effects (ITEs) [5 points]
+  
+```{r}
+earnings_df %>%
+  select(subject_id,treatment_effect) %>%
+  head(10)
+```  
+  
+  - Average treatment effect (ATE) [5 points]
+  
+```{r}
+earnings_df %>%
+  summarize(ate = mean(treatment_effect, na.rm=T))
+```
+
+  - Average treatment effect for the treated (ATT) [5 points]
+  
+```{r}
+earnings_df %>%
+  dplyr::filter(treatment_state==1) %>%
+  summarize(att = mean(treatment_effect, na.rm=T))
+```
+
+  - Average treatment effect for the control (ATC) [5 points]
+
+```{r}
+earnings_df %>%
+  dplyr::filter(treatment_state==0) %>%
+  summarize(atc = mean(treatment_effect, na.rm=T))
+```  
+  
+  - Naive average treatment effect (NATE) [5 point]
+  
+```{r}
+earnings_df %>%
+  dplyr::summarize(NATE = mean(if_else(treatment_state==1,income_1,NULL), na.rm=T) - mean(if_else(treatment_state==0,income_0,NULL), na.rm=T))
+```
+
+
+  - Selection, or baseline, bias [1 point]
+  
+```{r}
+earnings_df %>%
+  dplyr::summarize(baseline_bias = mean(if_else(treatment_state==1,income_0,NULL), na.rm=T) - mean(if_else(treatment_state==0,income_0,NULL), na.rm=T))
+```
+
+  - Differential treatment effect, or heterogeneous treatment effect, bias [1 point]
+
+```{r}
+earnings_df %>%
+  dplyr::summarize(dte_bias = sum(if_else(treatment_state==0,1,0)/n()) * 
+                    (mean(if_else(treatment_state==1, treatment_effect,NULL), na.rm=T)
+                     - mean(if_else(treatment_state==0, treatment_effect,NULL), na.rm=T)
+                     ))
+```
+
+
+c) Discuss whether in a world with complete information about the potential outcomes your conclusions differ from those of the research team. [1 points]
+
+<!-- During this course, we will input our answers that include text inside the tag, as follows:
+-->
+
+<div class = "answer">
+
+It appears that the researchers simply took the NATE for their results. However, with complete information there appears to be a severe selection bias in the data. That is, the children who attended private school would have a significantly higher income if they attended public school than those children who attended public school.
+
+</div>
+
+
+d) Develop an alternative theory about the observed differences between private and public school students' incomes. Write a short paragraph about what you suspect can be behind the observed results and formalize your assumptions in a Directed Acyclic Graph (DAG) [1 points] 
+
+<!-- During this course, we will input our answers that include text inside the tag, as follows:
+-->
+
+<div class = "answer">
+
+As a continuation of my answer above-- This is intuitive, because children who are able to afford tuition for private schools are likely to have come from wealthier families. This wealth, in turn, would give them more opportunity for a higher income later in life regardless of their educational status.
+
+</div>
+ 
+
+```{r, out.width="70%"}
+
+```  
+
+
+---
+
+### Task 5 - Statistics inspired meme [2 bonus points in total]
+
+a)  Create a stats-inspired meme using any meme generating R package, to earn bonus points!
+
+```{r}
+
+library("meme")
+u <- system.file("angry8.jpg", package="meme")
+#meme(u, "funny with memes", "NATE or selection bias?", size=3)
+# this is giving me a weird error every time
+```  
