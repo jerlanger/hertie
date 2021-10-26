@@ -1,0 +1,493 @@
+---
+title: "Replication Analysis"
+author: "Joseph Erlanger"
+date: "`r format(Sys.time())`"
+output:
+  html_document:
+    df_print: paged
+---
+  
+<style>
+div.answer {background-color:#f3f0ff; border-radius: 5px; padding: 20px;}
+</style>
+
+
+```{r KnitrSetUp, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+
+```{r SetDirectory, include=FALSE, cache = FALSE}
+knitr::opts_knit$set(root.dir = "~/PycharmProjects/hertie/stats2/assignments/replication_analysis/")
+```
+
+```{r InstallLoadPackages, include = F}
+check.packages <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg))
+    install.packages(new.pkg, dependencies = TRUE,
+                     repos = "https://cran.rstudio.com")
+  sapply(pkg, require, character.only = TRUE)
+}
+
+check.packages(c("tidyverse","haven","plm","broom","kableExtra","stargazer"))
+```
+
+### Instructions
+
+It is increasingly common for top journals in political science and economics to require authors to submit their full replication data and analysis for others to use/verify/extend. These replication files are often referred to in the paper, accessible via the journal website, or through the personal webpages of authors. Going through someone else's analysis is often one of the best ways to learn how to apply a new method and/or discover weaknesses and possible extensions in published papers.
+
+This assignment asks you to do exactly that. In particular, it asks you to read and replicate analysis in the following paper: Langsæther, P., Evans, G., & O'Grady, T. (2021). "Explaining the Relationship Between Class Position and Political Preferences: A Long-Term Panel Analysis of Intra-Generational Class Mobility." *British Journal of Political Science*, 1-10. doi:10.1017/S0007123420000599.
+
+The point values are listed by the individual questions. In addition, we reserve the right to award up to 5 bonus points for extensions that really go above and beyond what is necessary (e.g., adding variables to the dataset provided or other major data manipulations). We do **not** expect to award *any* bonus points, but in the interest of maximum transparency, you should be aware that this is possible.
+
+**Provided documentation on Moodle**:
+
+1. Paper.
+
+2. Supplementary appendix, which includes definitions of the dependent variables and further exploration of the indepdendent variables. Also includes a variety of supplementary analyses.
+
+3. The analysis for this paper was mostly done in Stata. For your reference, we include the Stata program file (.do file) with analysis from paper (you can open this document using Notepad or any simple word processing program on your computer).
+
+4. all-waves.dta. The replication in the .do file starts from individual waves of the BHPS and merges them. We have already done this for you, so this data set includes all the data you need to replicate the analysis. That is, everything that is in `Section 1` of the .do file has already been done and the output named all-waves.dta.
+
+5. Zip-folder with the full replication analysis provided by the authors (including the raw data files they used to merge their final dataset). This is not necessary for the assignment, but is provided in case you are interested. These files are all available online  [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/BTZ9UN).
+
+
+### Section I --- RQ and Identification [15 points in total]
+
+1. [1 point] In your own words, explain the central research question and the main findings in this paper. Make sure to identify the key contribution of this paper (i.e., what it does better than previous papers on the same/similar topic).
+
+<div class = "answer"> 
+The central research question of the paper is: does class mobility have an effect on both economic and non-economic conservatism?
+
+This paper is different from others in that it uses long-term panel data, and that it specifically uses class identification as a main independent variable on conservatism. Previous papers used "one-shot cross-sectional data" in order to analyze the various affects upon political values. The only other long-term panel-data paper they identify (Ares, 2020) focuses purely upon economic conservatism.
+</div> 
+
+
+2. [7 points] What is the identification strategy in this paper? What assumptions underlie this identification strategy?
+
+<div class = "answer"> 
+The identification strategy used here is long-term panel data collected from individuals for the British Household Panel Study during the years 1991-2007. From this panel data, they focus on class classifications as defined by "Goldthorpe Social Class" schema.
+
+The underlying conditions that the author assume is that "all unobserved heterogeneity is time invariant, and that wave fixed effects control for time-specific factors, such as aggregate ideological change, that could confound the relationships". These are the normal assumptions for panel data explorations. 
+</div> 
+
+3. [7 points] Overall, do you believe that the data satisfy these assumptions? Think of at least one way in which the identification assumptions might plausibly be violated (i.e., think of a potential/plausible confounder) and explain why you think it is (or is not) a problem for this analysis. (These potential confounders to not have to exist in the dataset, they can be anything you can think of.)
+
+
+<div class = "answer"> 
+
+</div> 
+
+
+---
+
+### Section II --- Data description [20 points in total]
+
+Load Data
+
+``` {r LoadAndCheck, results=F}
+# Load main df and check 
+
+df <- haven::read_dta("local/all_waves.dta") %>%
+  zap_labels()
+
+# Check that final dataset per .do file matches dataset provided
+# If >0 then doesn't match expected (result: is >0 so problem)
+df %>% 
+  filter(worker + lowservice + highservice == 0) %>% 
+  count()
+
+# !!! .do file indicates that they filter out all routine (egp4 = 2) workers but 
+# !!! isn't indicated in paper and that isn't done in dataset? #
+# !!! when adding in `routine` it becomes 0 #
+df %>% 
+  filter(worker + routine + lowservice + highservice ==0) %>% 
+  count()
+
+# Check all one wave pids are filtered, all good
+
+df %>%
+  group_by(pid) %>%
+  summarise(rws = n()) %>%
+  filter(rws <= 1) %>%
+  count()
+```
+
+4. [2 points] What is the unit of analysis and sample used in the article?
+
+<div class = "answer"> 
+The unit of analysis is "ideological change", represented by $∆Y = Y_{ij} - Y_{ij+1}$ where $j$ is an observed wave for an individual $i$.
+
+The sample used is 35,014 observations from the BHPS panel data. An observation was dropped if an individual did not fit into one of the four chosen classes (workers, routine non-manual, lower service, higher service), or if they were retired. An individual was also dropped if they only appeared in one wave.
+</div> 
+
+5. [8 points] Describe the outcome variables in Tables 1--3 in more detail. How are they measured? Explain this in detail, assuming that an educated, but non-expert reader. Provide a quantitative (numerical or graphical) summary of the outcome variables.
+
+<div class = "answer"> 
+The five outcome variables represented in Tables 1,2,3 are all deltas $∆Y = Y_{ij} - Y_{ij+1}$ between observed waves $j$ for an individual $i$. This response is then organized between *between* (class average) and *within* (delta for those who have newly moved into said class compared to their previous response). All five variables $Y$ represent an area of ideology and are deduced by survey answers from an individual for that wave.
+
+The first three are subjective "agreement" answers on a five-point scale (1="strongly disagree, 5="strongly agree"). The other two are represented by binary variables (1=in, 0=out).
+
+* **Economic Left-Right**: The mean response to 6 related survey questions on economic ideology (ex: "There is one law for the rich and one for the poor").
+* **Opposition to Homosexuality**: The response to "Homosexual relationships are always wrong".
+* **Support for Traditional Gender Roles**: The response to "A husband's job is to earn money; a wife's job is to look after the home and family".
+* **Subjective Class Identity**: Does the individual self-identify as working class when asked "...which social class would you say you belong to?"
+* **Party Support/Vote Choice**: If the individual showed *any* support for the conservative party in a series of questions asking what party they felt closest to.
+</div> 
+
+```{r}
+plot
+```
+
+
+6. [8 points] What are the key explanatory variables used in the article? How are they measured? Provide a quantitative (numerical or graphical) summary of these variables.
+
+<div class = "answer"> 
+They key explanatory variables are dummy variables (worker, lowservice, highservice) created via a classification variable (in the dataset as `egb` and reduced as `egb4`), which is itself a reduction of BHPS' `rjbgold` variable. This var is a categorization of the `pid` according to the "Goldthorpe Class Schema".
+
+The schema indicates "occupational categories derived from job descriptions and employment status" (Evans, Geoffrey. (1992). Testing the Validity of the Goldthorpe Class Schema. European Sociological Review. 8. 10.1093/oxfordjournals.esr.a036638.) and is designed to indicate an individuals *position* within the labor market.
+
+The summary of `egb` (`egb4` combines IDs 1 and 2 to form *workers*):
+
+ <table border=1px align="center" width="100%">
+  <tr>
+    <th>ID</th>
+    <th>Name</th>
+    <th>incl. `rjbgold` cats</th>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>higher service</td>
+    <td>1</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>lower service</td>
+    <td>2</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>routine non-manual</td>
+    <td>3</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>foreman, technicians, skilled manual</td>
+    <td>8,9</td>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>non- or semi-skilled manual, agricultural, personal service</td>
+    <td>4,10,11</td>
+  </tr>
+</table><br>
+
+This classification ignores `rjbgold` categories 5,6,7 which are: "sml props w employees","sml props w/o employees", and "Farmers,Smallholders". A distribution of observations for `egb` is as follows
+</div>
+
+```{r}
+plot_df <- df %>%
+  group_by(egp) %>%
+  summarise(Observations = n(),
+            PIDs = length(unique(pid))) %>%
+  gather("Stat","Value", -egp)
+
+ggplot2::ggplot(plot_df,aes(x=egp, y=Value, fill=Stat)) +
+  geom_col(position="dodge") +
+  labs(
+    title = "Observations & Unique PIDs (by EGP)",
+    caption = "1-A",
+    x = "EGP Category",
+    y = NULL
+  ) +
+  theme(legend.title = element_blank(),
+        legend.position="top",
+        legend.direction = "horizontal",
+        legend.justification = "right",
+        legend.margin = margin(t = -20, unit = "pt"))
+```
+
+
+7. [2 points] Lastly, note anything you found interesting at this point. In particular, note if you find any concerns or interesting aspects related to the measurement of the outcome and explanatory variables.
+
+<div class = "answer"> 
+I would say my biggest concern with this dataset is that the outcome variables are all self-reported. I think this would introduce a heavy bias in the dataset, as people will prime their answers for what they think want to be heard. I think this bias could also be unequally distributed among class variables. It's possible that someone who is higher up on the "class" foodchain could be more aware of what answers are in vogue or not.
+
+The second issue I have is the heavy emphasis on the class schema. We have no insight in the data as to how they arrived to a certain decision for someone when placing them into their class strata. So, this entire analysis is leaning on a black box. In a way, this is also an analysis of how good the GSC is at classifying individuals.
+</div>
+
+
+---
+
+### Section III --- Replication and re-analysis [65 points in total]
+
+8. [5 points] What is/are the regression technique(s) used in the article? Explain, in your own words, generally how to interpret results using this/these technique(s).
+
+
+<div class = "answer"> 
+There are two models being used: between effects (BE) and fixed effects (FE). An BE model seeks to answer what happens to y when x changes between individuals?
+
+A FE model attempts to explain the relationship between outcome and time-variant explanatory variables in regards only to an individual ("within-unit effects"). The question being answered is: "what happens to y when x changes within an individual?"
+
+The underlying assumption of FE is that individuals have time-invariant characteristics (like gender) that will bias the outcome in some way. By using FE models, you are removing the error introduced by these characteristics in order to measure the true effect of the relationship
+</div> 
+
+9. [20 points] Replicate the analysis in Tables 1--3 to the best of your ability. Provide *all code used for the regressions (including packages used, etc)* and output tables that include as much as possible of the information contained in the original tables, but *at a minimum* the following information:
+   - Name of DV (not variable name, but descriptive name like original paper)
+   - Independent variables with standard errors and significance stars (no need to provide constant)
+   - Number of observations
+   - Number of individuals
+
+``` {r}
+remove.pids <- function(ds){
+  pids <- ds %>%
+    group_by(pid) %>%
+    summarise("rws" = n()) %>%
+    filter(rws==1) %>%
+    select(pid)
+  
+  ds <- anti_join(ds, pids, by="pid")
+}
+
+panel.model <- function(ds, out_var, model){
+  if (model == "between") {
+    plm(out_var ~ ds$worker + ds$lowservice + ds$highservice + factor(ds$wave), 
+               data=ds,
+               model=model)
+  }
+  if (model == "within") {
+    plm(out_var ~ worker + lowservice + highservice + factor(wave),
+               data=ds,
+               model=model,
+               index="pid")
+  }
+  else {
+    TRUE
+  }
+}
+```
+
+``` {r}
+# Main Regressions #
+
+# Economic Ideology
+
+eclr_df <- df %>%
+  filter((wave %in% c(1,3,5,7,9,10,14,17)) & (!is.na(eclr)))
+eclr_df <- remove.pids(eclr_df)
+
+eclr_be <- plm(eclr ~ worker + lowservice + highservice + factor(wave), 
+               data=eclr_df,
+               model = "between")
+
+eclr_fe <- plm(eclr ~ worker + lowservice + highservice + factor(wave),
+               data=eclr_df,
+               model="within",
+               index="pid")
+
+# Homosexuality #
+
+hs_df <- df %>%
+  filter((wave %in% c(8,10,12,14)) & (!is.na(homowrong)))
+hs_df <- remove.pids(hs_df)
+
+hs_be <- plm(homowrong ~ worker + lowservice + highservice + factor(wave),
+             data=hs_df,
+             model="between")
+
+hs_fe <- plm(homowrong ~ worker + lowservice + highservice + factor(wave),
+             data=hs_df,
+             model="within",
+             index="pid")
+
+# Gender Equality #
+
+ge_df <- df %>%
+  filter((wave %in% c(1,3,5,7,11,13,15,17)) & (!is.na(wifehome)))
+ge_df <- remove.pids(ge_df)
+
+ge_be <- plm(wifehome ~ worker + lowservice + highservice + factor(wave),
+             data=ge_df,
+             model="between"
+             )
+
+ge_fe <- plm(wifehome ~ worker + lowservice + highservice + factor(wave),
+             data=ge_df,
+             model="within",
+             index="pid")
+
+# Working Class Self-Perception#
+
+sc_df <- df %>%
+  filter((wave %in% c(1,6,10,15)) & (!is.na(subjclass2)))
+sc_df <- remove.pids(sc_df)
+
+sc_be <- plm(subjclass2 ~ worker + lowservice + highservice + factor(wave),
+             data=sc_df,
+             model="between")
+
+sc_fe <- plm(subjclass2 ~ worker + lowservice + highservice + factor(wave),
+             data=sc_df,
+             model="within",
+             index="pid")
+
+# Voting Preference #
+
+vp_be <- plm(cons ~ worker + lowservice + highservice + factor(wave),
+             data=df,
+             model="between")
+
+vp_fe <- plm(cons ~ worker + lowservice + highservice + factor(wave),
+             data=df,
+             model="within",
+             index="pid")
+
+# Build Tables #
+
+stargazer::stargazer(eclr_be,eclr_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 1: Class and Political Attitudes",
+                     dep.var.caption = "",
+                     dep.var.labels = "Economic left-right (higher = more conservative)",
+                     keep=c("worker","lowservice","highservice"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+
+stargazer::stargazer(hs_be,hs_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 1: Class and Political Attitudes",
+                     dep.var.caption = "",
+                     dep.var.labels = "Opposition to homosexuality (higher = more opposed)",
+                     keep=c("worker","lowservice","highservice"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+
+stargazer::stargazer(ge_be,ge_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 1: Class and Political Attitudes",
+                     dep.var.caption = "",
+                     dep.var.labels = "Support for Traditional Gender Roles (higher = more traditional)",
+                     keep=c("worker","lowservice","highservice"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+
+stargazer::stargazer(sc_be,sc_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 2: Objective Class & Subjective Class Identity",
+                     dep.var.caption = "Subj Class Identity (1=Working Class, 0=Other)",
+                     dep.var.labels.include = FALSE,
+                     keep=c("worker","lowservice","highservice"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+
+stargazer::stargazer(vp_be,vp_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 3: Class and Party Preference",
+                     dep.var.caption = "Vote Choice (1=Conservative, 0=All Other Parties",
+                     dep.var.labels.include = FALSE,
+                     keep=c("worker","lowservice","highservice"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+```
+
+10. [10 points] Were you able to complete replicate the models from the paper? If not, what is different? Do the substantive findings change in important ways as a result of these differences (i.e., shifts in magnitude/sign of effect or statistical significance)?
+
+<div class = "answer"> 
+I was able to replicate the results from the paper. All of the statistically significant coefficients for the explanatory variables match those that are in the paper. Those that aren't statistically significant contain the same number of observations as reported in the paper and their standard error overlaps with the distribution for the answer reported in the paper.
+
+There is only one substantive difference I can find between my replication and their results. In my output, the coefficient for `lowservice` in the `within` FE model for *opposition to homosexuality* is found to be statistically significant at a 0.1 threshold, while the author indicates it is not significant at all. However, I am willing to believe that this is a intentional choice due to the how barely significant the coefficient is rather than a procedural difference.
+</div><br>
+
+11. [25 points] Now is your opportunity to get creative! Extend the analysis in some meaningful way. This can either be through re-coding of some of the variables used in the current version of the paper or by using some of the other variables available in the dataset. In your answers, make sure to include the following:
+    * explanation of extension (what do you propose to do and why)
+    * any code done to extend your analysis
+    * output tables for your new analysis
+    * discussion of what (if anything) is different and how that may (or may not) change the conclusions of the paper
+
+**Note:** The original variable descriptions can all be found on the website of the BHPS: [https://www.iser.essex.ac.uk/bhps/documentation/volb/index.html](https://www.iser.essex.ac.uk/bhps/documentation/volb/index.html). To explore the variables, select one of the waves, then select the Record Description "Contains individual-level data for respondents" and from there you can see the individual variables. Note that the variable names have been changed (usually, but not always, by dropping the first letter) by the paper authors, see Section I of their .do file for the new names (e.g., the line `rename nsampst sampst` in the .do file means that the authors renamed a variable from `nsampst` to `sampst`).
+
+<div class = "answer"> 
+There are really two things I am interested in to extend the dataset.
+
+1. The impact of the relative salary upon economic conservatism. The class schema used throughout the analysis purposely does not only take into account one's financial standing, but rather an amalgamation of their position within the economy. While the author did take into account income in table 4, they did so by looking at their absolute numbers. I am wondering if there is an influence on someone's ideology based on their *relative* standing compared to their fellow countryman. Someone making 50k might feel great if the median is 25k and terrible if the median is 75k.
+
+2. What is the correlation between the various outcome variables? The implication is that all are indicative of conservatism but I am curious if that is actually true. For example: Does worker self-identification actually correlate negatively with economic conservatism?
+</div> 
+
+``` {r}
+
+# Build FIYR1000 df with an index of their relative wealth for that wave
+
+fiyr_df <- df %>%
+  filter(!is.na(fiyr1000)) %>%
+  group_by(wave, salary_index = ntile(fiyr1000,100))
+fiyr_df <- remove.pids(fiyr_df)
+
+# Plot distribution of waves
+
+ggplot2::ggplot(fiyr_df,aes(x=fiyr1000, group=wave, color=factor(wave))) + 
+  geom_freqpoly(binwidth = function(x) 2 * IQR(x) / (length(x)^(1/3))) +
+  scale_y_log10() +
+  labs(
+    title = "Distribution of Salary (By Wave)",
+    caption = "1-A",
+    x = "Salary (000s)",
+    y = "PIDs"
+  ) +
+  guides(col=guide_legend(title="Wave Number", nrow=9, ncol=2))
+
+fiyr_be <- plm(eclr ~ worker + lowservice + highservice + factor(wave) + salary_index, 
+               data=fiyr_df,
+               model = "between")
+
+fiyr_fe <- plm(eclr ~ worker + lowservice + highservice + factor(wave) + salary_index,
+               data=fiyr_df,
+               model="within",
+               index="pid")
+
+stargazer::stargazer(fiyr_be,fiyr_fe,
+                     type="text",
+                     column.labels = c("Between","Within"),
+                     title="Table 3: Class and Party Preference",
+                     dep.var.caption = "Vote Choice (1=Conservative, 0=All Other Parties",
+                     dep.var.labels.include = FALSE,
+                     keep=c("worker","lowservice","highservice","salary_index","age"),
+                     keep.stat = c("n"),
+                     digits=2,
+                     model.numbers = FALSE
+                     )
+```
+<div class = "answer"> 
+TYPE YOUR ANSWER HERE
+</div> 
+
+
+12. [5 points] Discuss any challenges you faced during this replication exercise. These can range from understanding the data measurement/definitions to reproducing estimates to difficulties with R.
+
+<div class = "answer"> 
+I actually had a lot of difficulty with R in this situation. Such an analysis has a lot of repeat coding, which could normally be captured by functions that would pass through variables and outputs. For example, given that the plm() command is virtually identical across all regressions here, it would make sense to store that as a function and pass through the dataframe and dependent variable. After performing the modeling, it could then dynamically declare global variables and assign the model output to them.
+
+To do so would create a lot more flexibility in the program while also reducing the chance for errors. Copy & paste is a poor practice. However, after a lot of googling it seemed that R is not intended for functional programming so I gave up. You can see the start of my attempt in the panel.model() function. If I would have the opportunity, I would choose to tackle these problems in a more robust framework like python.
+</div> 
