@@ -3,6 +3,7 @@ title: "Replication Analysis"
 author: "Joseph Erlanger"
 date: "`r format(Sys.time())`"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -35,7 +36,7 @@ check.packages <- function(pkg){
   sapply(pkg, require, character.only = TRUE)
 }
 
-check.packages(c("tidyverse","haven","plm","broom","kableExtra","stargazer"))
+check.packages(c("tidyverse","haven","plm","Hmisc","reshape2","stargazer"))
 ```
 
 ### Instructions
@@ -61,14 +62,13 @@ The point values are listed by the individual questions. In addition, we reserve
 
 ### Section I --- RQ and Identification [15 points in total]
 
-1. [1 point] In your own words, explain the central research question and the main findings in this paper. Make sure to identify the key contribution of this paper (i.e., what it does better than previous papers on the same/similar topic).
+1. [1 point] In your own words, explain the central research question and the main findings in this paper. Make sure to identify the key contribution of this paper (i.e., what it does better than previous papers on the same/similar topic).<br>
 
 <div class = "answer"> 
 The central research question of the paper is: does class mobility have an effect on both economic and non-economic conservatism?
 
 This paper is different from others in that it uses long-term panel data, and that it specifically uses class identification as a main independent variable on conservatism. Previous papers used "one-shot cross-sectional data" in order to analyze the various affects upon political values. The only other long-term panel-data paper they identify (Ares, 2020) focuses purely upon economic conservatism.
-</div> 
-
+</div><br>
 
 2. [7 points] What is the identification strategy in this paper? What assumptions underlie this identification strategy?
 
@@ -78,11 +78,12 @@ The identification strategy used here is long-term panel data collected from ind
 The underlying conditions that the author assume is that "all unobserved heterogeneity is time invariant, and that wave fixed effects control for time-specific factors, such as aggregate ideological change, that could confound the relationships". These are the normal assumptions for panel data explorations. 
 </div> 
 
-3. [7 points] Overall, do you believe that the data satisfy these assumptions? Think of at least one way in which the identification assumptions might plausibly be violated (i.e., think of a potential/plausible confounder) and explain why you think it is (or is not) a problem for this analysis. (These potential confounders to not have to exist in the dataset, they can be anything you can think of.)
-
+3. [7 points] Overall, do you believe that the data satisfy these assumptions? Think of at least one way in which the identification assumptions might plausibly be violated (i.e., think of a potential/plausible confounder) and explain why you think it is (or is not) a problem for this analysis. (These potential confounders to not have to exist in the dataset, they can be anything you can think of.)<br>
 
 <div class = "answer"> 
+I am not totally sure that the data satisfies the assumptions, because it assumes that individuals will be consistent in self-reporting over the course of the study and it assumes that social pressure (like aggregate ideological change) is consistent across classes, when the reality is that these individuals are subject to different pressures depending on their socioeconomic status.
 
+A potential confounder could be something as simple as their pre-existing wealth. As far as I can tell, the GSC only gauges individuals on their current economic state within capitalism. However, I don't see any mention of pre-existing wealth. For example, I am from NYC, and there are plenty of people living there who are working "working class" jobs on similar wages. However, they live in a $500k apartment that their parents bought for them. I don't see how this wouldn't inform the politics of an individual when compared to someone who is more traditionally working class.
 </div> 
 
 
@@ -123,15 +124,15 @@ df %>%
 4. [2 points] What is the unit of analysis and sample used in the article?
 
 <div class = "answer"> 
-The unit of analysis is "ideological change", represented by $∆Y = Y_{ij} - Y_{ij+1}$ where $j$ is an observed wave for an individual $i$.
+The unit of analysis is "ideological change", represented by $\Delta{Y} = Y_{ij} - Y_{ij+1}$ where $j$ is an observed wave for an individual $i$. The "ideological change" is measured via survey questions.
 
-The sample used is 35,014 observations from the BHPS panel data. An observation was dropped if an individual did not fit into one of the four chosen classes (workers, routine non-manual, lower service, higher service), or if they were retired. An individual was also dropped if they only appeared in one wave.
+The survey used is 35,014 observations from the BHPS panel data. An observation was dropped if an individual did not fit into one of the four chosen classes (workers, routine non-manual, lower service, higher service), or if they were retired. An individual was also dropped if they only appeared in one wave. For subsequent analyses, additional `pids` were dropped if they did not have the outcome variable or they only appeared in one wave in the outcome sample.
 </div> 
 
 5. [8 points] Describe the outcome variables in Tables 1--3 in more detail. How are they measured? Explain this in detail, assuming that an educated, but non-expert reader. Provide a quantitative (numerical or graphical) summary of the outcome variables.
 
 <div class = "answer"> 
-The five outcome variables represented in Tables 1,2,3 are all deltas $∆Y = Y_{ij} - Y_{ij+1}$ between observed waves $j$ for an individual $i$. This response is then organized between *between* (class average) and *within* (delta for those who have newly moved into said class compared to their previous response). All five variables $Y$ represent an area of ideology and are deduced by survey answers from an individual for that wave.
+The five outcome variables represented in Tables 1,2,3 are all deltas $\Delta{Y} = Y_{ij} - Y_{ij+1}$ between observed waves $j$ for an individual $i$. This response is then organized between *between* (class average) and *within* (delta within an individual). All five variables $Y$ represent an area of ideology and are deduced by survey answers from an individual for that wave. Each ideology is supposed to indicate a preference for conservatism.
 
 The first three are subjective "agreement" answers on a five-point scale (1="strongly disagree, 5="strongly agree"). The other two are represented by binary variables (1=in, 0=out).
 
@@ -143,7 +144,22 @@ The first three are subjective "agreement" answers on a five-point scale (1="str
 </div> 
 
 ```{r}
-plot
+outcomes_df <- df %>%
+  select(eclr,homowrong,wifehome,subjclass2,cons)
+
+outcomes_df %>%
+  pivot_longer(cols = 1:5) %>%
+  ggplot(aes(value, fill=name)) + 
+  geom_histogram() +
+  facet_wrap(~name) +
+  labs(
+    title = "Distribution of Outcome Variables",
+    caption = "5-A",
+    x = NULL,
+    y = NULL
+  ) +
+  theme(legend.title = element_blank(),
+        legend.position="none")
 ```
 
 
@@ -156,41 +172,19 @@ The schema indicates "occupational categories derived from job descriptions and 
 
 The summary of `egb` (`egb4` combines IDs 1 and 2 to form *workers*):
 
- <table border=1px align="center" width="100%">
-  <tr>
-    <th>ID</th>
-    <th>Name</th>
-    <th>incl. `rjbgold` cats</th>
-  </tr>
-  <tr>
-    <td>5</td>
-    <td>higher service</td>
-    <td>1</td>
-  </tr>
-  <tr>
-    <td>4</td>
-    <td>lower service</td>
-    <td>2</td>
-  </tr>
-  <tr>
-    <td>3</td>
-    <td>routine non-manual</td>
-    <td>3</td>
-  </tr>
-  <tr>
-    <td>2</td>
-    <td>foreman, technicians, skilled manual</td>
-    <td>8,9</td>
-  </tr>
-  <tr>
-    <td>1</td>
-    <td>non- or semi-skilled manual, agricultural, personal service</td>
-    <td>4,10,11</td>
-  </tr>
-</table><br>
+``` {r, echo=F}
+id <- c("5","4","3","2","1")
+name <- c("higher service","lower service", "routine non-manual", "foreman, technicians, skilled manual", "non- or semi-skilled manual, agricultural, personal service")
+incl_rjbgold_cats <- c("1","2","3","8,9","4,10,11")
+
+egb_meta <- data.frame(id,name,incl_rjbgold_cats)
+egb_meta %>%
+  knitr::kable() %>%
+  kableExtra::kable_styling(full_width=T, position="left")
+```
 
 This classification ignores `rjbgold` categories 5,6,7 which are: "sml props w employees","sml props w/o employees", and "Farmers,Smallholders". A distribution of observations for `egb` is as follows
-</div>
+</div><br>
 
 ```{r}
 plot_df <- df %>%
@@ -203,7 +197,7 @@ ggplot2::ggplot(plot_df,aes(x=egp, y=Value, fill=Stat)) +
   geom_col(position="dodge") +
   labs(
     title = "Observations & Unique PIDs (by EGP)",
-    caption = "1-A",
+    caption = "6-A",
     x = "EGP Category",
     y = NULL
   ) +
@@ -220,9 +214,8 @@ ggplot2::ggplot(plot_df,aes(x=egp, y=Value, fill=Stat)) +
 <div class = "answer"> 
 I would say my biggest concern with this dataset is that the outcome variables are all self-reported. I think this would introduce a heavy bias in the dataset, as people will prime their answers for what they think want to be heard. I think this bias could also be unequally distributed among class variables. It's possible that someone who is higher up on the "class" foodchain could be more aware of what answers are in vogue or not.
 
-The second issue I have is the heavy emphasis on the class schema. We have no insight in the data as to how they arrived to a certain decision for someone when placing them into their class strata. So, this entire analysis is leaning on a black box. In a way, this is also an analysis of how good the GSC is at classifying individuals.
+The second issue I have is the heavy emphasis on the class schema. We have no insight in the data as to how they arrived to a certain decision for someone when placing them into their class strata. So, this entire analysis is leaning on a black box. In a way, this is also an analysis of how good the GSC is at classifying individuals compared to our preconcieved notions of what it means to belong to a class.
 </div>
-
 
 ---
 
@@ -230,14 +223,13 @@ The second issue I have is the heavy emphasis on the class schema. We have no in
 
 8. [5 points] What is/are the regression technique(s) used in the article? Explain, in your own words, generally how to interpret results using this/these technique(s).
 
-
 <div class = "answer"> 
 There are two models being used: between effects (BE) and fixed effects (FE). An BE model seeks to answer what happens to y when x changes between individuals?
 
 A FE model attempts to explain the relationship between outcome and time-variant explanatory variables in regards only to an individual ("within-unit effects"). The question being answered is: "what happens to y when x changes within an individual?"
 
-The underlying assumption of FE is that individuals have time-invariant characteristics (like gender) that will bias the outcome in some way. By using FE models, you are removing the error introduced by these characteristics in order to measure the true effect of the relationship
-</div> 
+The underlying assumption of FE is that individuals have time-invariant characteristics (like gender) that will bias the outcome in some way. By using FE models, you are removing the error introduced by these characteristics in order to measure the true effect of the relationship.
+</div><br>
 
 9. [20 points] Replicate the analysis in Tables 1--3 to the best of your ability. Provide *all code used for the regressions (including packages used, etc)* and output tables that include as much as possible of the information contained in the original tables, but *at a minimum* the following information:
    - Name of DV (not variable name, but descriptive name like original paper)
@@ -246,6 +238,8 @@ The underlying assumption of FE is that individuals have time-invariant characte
    - Number of individuals
 
 ``` {r}
+# Functions #
+
 remove.pids <- function(ds){
   pids <- ds %>%
     group_by(pid) %>%
@@ -273,11 +267,11 @@ panel.model <- function(ds, out_var, model){
   }
 }
 ```
-
+<br>
 ``` {r}
-# Main Regressions #
+## Main Regressions ##
 
-# Economic Ideology
+# Economic Ideology #
 
 eclr_df <- df %>%
   filter((wave %in% c(1,3,5,7,9,10,14,17)) & (!is.na(eclr)))
@@ -418,6 +412,8 @@ stargazer::stargazer(vp_be,vp_fe,
 I was able to replicate the results from the paper. All of the statistically significant coefficients for the explanatory variables match those that are in the paper. Those that aren't statistically significant contain the same number of observations as reported in the paper and their standard error overlaps with the distribution for the answer reported in the paper.
 
 There is only one substantive difference I can find between my replication and their results. In my output, the coefficient for `lowservice` in the `within` FE model for *opposition to homosexuality* is found to be statistically significant at a 0.1 threshold, while the author indicates it is not significant at all. However, I am willing to believe that this is a intentional choice due to the how barely significant the coefficient is rather than a procedural difference.
+
+As a sidenote, having the code available really helps in evaluating the studies, as I can see what the researcher did exactly rather than try to intuit through what they claim to have done in the paper.
 </div><br>
 
 11. [25 points] Now is your opportunity to get creative! Extend the analysis in some meaningful way. This can either be through re-coding of some of the variables used in the current version of the paper or by using some of the other variables available in the dataset. In your answers, make sure to include the following:
@@ -434,29 +430,45 @@ There are really two things I am interested in to extend the dataset.
 1. The impact of the relative salary upon economic conservatism. The class schema used throughout the analysis purposely does not only take into account one's financial standing, but rather an amalgamation of their position within the economy. While the author did take into account income in table 4, they did so by looking at their absolute numbers. I am wondering if there is an influence on someone's ideology based on their *relative* standing compared to their fellow countryman. Someone making 50k might feel great if the median is 25k and terrible if the median is 75k.
 
 2. What is the correlation between the various outcome variables? The implication is that all are indicative of conservatism but I am curious if that is actually true. For example: Does worker self-identification actually correlate negatively with economic conservatism?
-</div> 
+</div><br>
 
 ``` {r}
+# Salary Index #
 
-# Build FIYR1000 df with an index of their relative wealth for that wave
+# Build FIYR1000 df with an index of relative wealth for that wave
 
 fiyr_df <- df %>%
   filter(!is.na(fiyr1000)) %>%
   group_by(wave, salary_index = ntile(fiyr1000,100))
 fiyr_df <- remove.pids(fiyr_df)
 
-# Plot distribution of waves
+# Plot distribution of salary by waves
 
 ggplot2::ggplot(fiyr_df,aes(x=fiyr1000, group=wave, color=factor(wave))) + 
   geom_freqpoly(binwidth = function(x) 2 * IQR(x) / (length(x)^(1/3))) +
   scale_y_log10() +
   labs(
     title = "Distribution of Salary (By Wave)",
-    caption = "1-A",
+    caption = "11-A",
     x = "Salary (000s)",
     y = "PIDs"
   ) +
   guides(col=guide_legend(title="Wave Number", nrow=9, ncol=2))
+
+# Plot distribution of salary by salary index by waves
+
+ggplot2::ggplot(fiyr_df,aes(y=fiyr1000, x=salary_index, group=wave, color=factor(wave))) + 
+  geom_freqpoly(stat="identity") +
+  scale_y_log10() +
+  labs(
+    title = "Salary & Salary Index (By Wave)",
+    caption = "11-B",
+    x = "Salary Index",
+    y = "Salary (000s)"
+  ) +
+  guides(col=guide_legend(title="Wave Number", nrow=9, ncol=2))
+
+# Compute BE and FE models with salary index included
 
 fiyr_be <- plm(eclr ~ worker + lowservice + highservice + factor(wave) + salary_index, 
                data=fiyr_df,
@@ -471,7 +483,7 @@ stargazer::stargazer(fiyr_be,fiyr_fe,
                      type="text",
                      column.labels = c("Between","Within"),
                      title="Table 3: Class and Party Preference",
-                     dep.var.caption = "Vote Choice (1=Conservative, 0=All Other Parties",
+                     dep.var.caption = "Economic Left-Right",
                      dep.var.labels.include = FALSE,
                      keep=c("worker","lowservice","highservice","salary_index","age"),
                      keep.stat = c("n"),
@@ -480,9 +492,45 @@ stargazer::stargazer(fiyr_be,fiyr_fe,
                      )
 ```
 <div class = "answer"> 
-TYPE YOUR ANSWER HERE
-</div> 
+The first chart displayed (11-A) does indeed show that there is a rightward shift of salary over time, which represents inflation and is to be expected for long-term data. So, to normalize the data, I built `salary_index` which sorts the `fiyr1000` for each wave into a 1:100 quantile. The second chart (11-B) shows that after normalizing the data, the value for `fiyr1000` at each `salary_index` level for each wave doesn't differ substantially. To be honest, I am not 100% sure what to make of that.
 
+Finally, I created a new version of the fixed effects model that was done in 10. but added in the salary index to see if it would diminish the effects of `egp`. The hypothesis is that money has more of an effect on conservatism than strict class identity. As you can see in the output, it does indeed increase the effect, although it is at a level so small that it shouldn't be considered a significant variable. What I think is interesting however, is how it has diminished the negative effect of being `worker` on both the `between` and `within` models (although `within` still isn't significant). At the same time it has slightly reduced the positive effect of `highservice` in the `between` model.
+</div><br>
+
+``` {r}
+# Correlation Matrix #
+# build df 
+outcome_df <- df %>%
+  select(eclr,homowrong,wifehome,subjclass2,cons)
+
+# get correlation and p-values
+p_map <- rcorr(as.matrix(outcome_df)) 
+melt_cormap <- melt(round(p_map$r,2))
+melt_pmap <- melt(round(p_map$P,2))
+
+melt_map <- left_join(melt_cormap,melt_pmap, by=c("Var1","Var2"))
+
+# build graphs
+ggplot2::ggplot(data=melt_map, aes(x=Var1, y=Var2, fill=value.x)) +
+  geom_tile(color="white") +
+  scale_fill_gradient(low="white", high="red") +
+  geom_text(aes(label=value.x), position=position_nudge(y=0.1), na.rm=TRUE) +
+  geom_text(aes(label=paste("(",value.y,")")), position=position_nudge(y=-0.1), na.rm=TRUE) +
+  theme_minimal() +
+  labs(
+    title = "Correlation of Outcome Variables",
+    subtitle = "P-Value in Parenthesis",
+    caption = "11-C",
+    x = "",
+    y = ""
+  ) +
+  guides(fill=guide_legend(title="Corr Value"))
+```
+<div class = "answer">
+To examine the relationship between the outcome variables, I built a correlation matrix out of the variables used by the author and then compared them along with their p-value (graph 11-C). What I think is interesting is that they are all supposed to build a view of conservatism, but many seem fairly uncorrelated with each other or have unintuitive outcomes. 
+
+For example, a higher view of oneself in "working class" seems to have a positive correlation with being economically conservative and a negative correlation with traditional gender role ideology. However, the relationship between all is so low that I would be hesitant to say there's any real connection between these viewpoints. The only one that has a stronger correlation and is intuitive is that economically conservative pids tend to identify as conservative voters (working class conservatives?).
+</div><br>
 
 12. [5 points] Discuss any challenges you faced during this replication exercise. These can range from understanding the data measurement/definitions to reproducing estimates to difficulties with R.
 
