@@ -2,6 +2,7 @@ library(ggplot2)
 library(ggrepel)
 library(dplyr)
 library(cowplot)
+library(tidyverse)
 
 #### 1. Load, Build Classifications, and Filter Data ####
 
@@ -24,7 +25,7 @@ df <- mutate(df, oecd = iso_code %in% oecd_country)
 # HDI Classifications #
 
 df %>%
-  filter(!(iso_code %in% c("","OWID_WRL","OWID_KOS"))) %>%
+  dplyr::filter(!(iso_code %in% c("","OWID_WRL","OWID_KOS"))) %>%
   distinct(iso_code,country) %>%
   write.csv("emissions_charts/local/country_iso.csv")
 
@@ -69,7 +70,7 @@ df <- df %>%
 # Build Final Reduced Dataset #
 
 df_r <- df %>%
-  filter((year >= 1990) & (year < 2020) & !(iso_code %in% c("","OWID_WRL","OWID_KOS"))) %>%
+  dplyr::filter((year >= 1990) & (year < 2020) & !(iso_code %in% c("","OWID_WRL","OWID_KOS"))) %>%
   select(iso_code,
        oecd,
        hdi_cat,
@@ -86,12 +87,20 @@ df_r <- df %>%
        share_global_co2, 
        total_ghg, 
        ghg_per_capita) %>%
-  mutate(year_fac = as.factor(year)) %>%
   mutate(n_dev_cats = ifelse(!oecd,1,0) + 
            ifelse(!hdi_cat == "Very High",1,0) +
            ifelse(!wb_cat == "High income",1,0) +
            ifelse(!annex1,1,0) +
-           ifelse(g77,1,0))
+           ifelse(g77,1,0)) %>%
+  mutate(south_oecd = !oecd) %>%
+  mutate(south_hdi = !hdi_cat == "Very High") %>%
+  mutate(south_wb = !wb_cat == "High income") %>%
+  mutate(south_annex1 = !annex1) %>%
+  mutate(south_g77 = g77) %>%
+  group_by(year) %>%
+  dplyr::mutate(year.co2 = sum(co2, na.rm=T)) %>%
+  ungroup() %>%
+  mutate(share_yr_co2 = co2/year.co2)
 
 newest <- df_r %>%
   group_by(country) %>%
@@ -114,72 +123,63 @@ rm(list=c("g77_countries",
           "annex1_country",
           "oecd_country"))
 
-#### 1a. Distribution of Development Categories ####
+#### 2. Distribution of Development Categories ####
 
+df_dist <- df_r %>%
+  group_by(n_dev_cats) %>%
+  summarize(countries = length(unique(country)))
 
-#### 2. Country by Absolute CO2 & GHG by Year ####
+ggplot2::ggplot(df_dist, aes(y=as.factor(n_dev_cats),
+                             x=countries,
+                             fill=as.factor(n_dev_cats))) +
+  geom_bar(stat="identity") +
+  scale_y_discrete(limits=rev) +
+  labs(y = "\"Global South\" Categories",
+       x = "Countries") +
+  theme_minimal() +
+  theme(legend.position = "None",
+        panel.grid.minor.x = element_blank(),
+        axis.title = element_text(size = 20),
+        axis.text = element_text(size = 20))
 
-# GHG #
+#### 3. Category by Absolute CO2 by Year ####
 
-top_countries <- df_r %>%
-  filter(total_ghg > 1000) %>%
-  group_by(country) %>%
-  slice_max(year)
+df_south <- df_r %>%
+  pivot_longer(col=c("south_oecd","south_g77","south_hdi","south_wb","south_annex1")) %>%
+  filter(value) %>%
+  group_by(year,name) %>%
+  summarise(share_yr_co2 = sum(share_yr_co2, na.rm=T)) %>%
+  ungroup()
 
-ggplot2::ggplot(df_r, aes(x=year, y=total_ghg, color=country)) +
+ggplot2::ggplot(df_south, aes(x=year, y=share_yr_co2, color=name)) +
   geom_line() +
-  geom_text_repel(data=top_countries, aes(label=country)) +
+  geom_point() +
+  scale_color_discrete(labels=c("Annex I","G77","HDI","OECD","WB")) +
+  labs(
+    title = "Growth of Global South's Emissions",
+    subtitle = "by \"Global South\" categories",
+    x="",
+    y="Share of World CO2 Output"
+  ) +
   theme_minimal() +
-  theme(legend.position = "none")
+  theme(
+    aspect.ratio=
+  )
 
-# CO2 #
+#### 4. Per Capita Distributions ####
 
-oecd_bar <- ggplot2::ggplot(df_r, aes(x=year, y=share_global_co2, fill=oecd)) +
-  geom_bar(stat="identity") +
-  annotate("text",
-           x=c(2000,2010),
-           y=c(25,75),
-           label=c("OECD Members","Non-OECD"),
-           color="white",
-           size=15) +
-  theme_minimal() +
-  theme(legend.position = "None",
-        axis.title = element_blank())
-
-hdi_bar <- ggplot2::ggplot(df_r, aes(x=year, y=share_global_co2, fill=hdi_cat)) +
-  geom_bar(stat="identity") +
-  theme_minimal() +
-  theme(legend.position = "None",
-        axis.title = element_blank())
-
-g77_bar <- ggplot2::ggplot(df_r, aes(x=year, y=share_global_co2, fill=g77)) +
-  geom_bar(stat="identity") +
-  theme_minimal()
-
-wb_bar <- ggplot2::ggplot(df_r, aes(x=year, y=share_global_co2, fill=wb_cat)) +
-  geom_bar(stat="identity") +
-  theme_minimal()
-
-annex1_bar <- ggplot2::ggplot(df_r, aes(x=year, y=share_global_co2, fill=annex1)) +
-  geom_bar(stat="identity") +
-  theme_minimal()
-
-plot_grid(oecd_bar,hdi_bar,g77_bar,wb_bar, annex1_bar)
-
-#### 3. Per Capita Distributions ####
-
-# Original 
+# Boxplot 
 capita_boxplot <- ggplot2::ggplot(df_newold, 
                 aes(x=paste(n_dev_cats,year), y=co2_per_capita)) +
   geom_boxplot(aes(size=co2, color=as.factor(n_dev_cats)),outlier.color = "red") +
 labs(title = "Distribution of CO2 Tonnes Per Capita",
-     subtitle = "by number of development categories and year",
+     subtitle = "by \"Global South\" categories and year",
      x = "",
      y = "") +
   theme_minimal() +
   theme(legend.position = "none")
 
-# With Abs CO2
+# Abs CO2
 abs_bar <- ggplot2::ggplot(df_newold, 
                 aes(x=paste(n_dev_cats,year), y=(co2/1000))) +
   geom_col(aes(fill=as.factor(n_dev_cats))) +
@@ -193,7 +193,7 @@ abs_bar <- ggplot2::ggplot(df_newold,
 
 plot_grid(capita_boxplot,abs_bar, ncol=1, rel_heights = c(3,1))
 
-#### 4. Scatter Plot with Size = Cumulative ####
+#### 5. Scatter Plot with Size = Cumulative ####
 
 scatter_1990 <- ggplot2::ggplot(df_newold %>%
                                   filter(year==1990),
@@ -231,5 +231,4 @@ scatter_2019 <- ggplot2::ggplot(df_newold %>%
 
 plot_grid(scatter_1990,scatter_2019)
 
-#### 5. Misc ####
-
+#### 6. Misc ####
