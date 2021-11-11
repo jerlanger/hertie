@@ -1,0 +1,280 @@
+---
+title: "Assignment 3 - Regression Discontinuity"
+author: "Joseph Erlanger"
+date: "`r format(Sys.time(), '%B %d, %Y | %H:%M:%S | %Z')`"
+output:
+  pdf_document
+---
+  
+<style>
+div.answer {background-color:#f3f0ff; border-radius: 5px; padding: 20px;}
+</style>
+
+```{r, include=FALSE}
+rm(list=ls())
+gc()
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      error = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      comment = NA)
+```
+
+# Instructions
+
+Assignment 3 is due on November 3rd, at 11:59hrs.
+
+Instructions:
+
+1. Start by answering the theory questions in this quiz below (Questions 1 and 2). 
+After question 3, you are required to work in RStudio. The dataset needed and a .Rmd file are available below.
+2. Answer the questions in this Moodle quiz directly. Sometimes you will be required to upload a picture file. For example from a graph.  Sometimes you are only required to type a number. Sometimes you need to type text and interpret your results. 
+3. Show all your code in the .Rmd file and the respective output file (.pdf or html). You don't need to write any answers there. The idea of the quiz is that we can grade your final answers directly in the quiz.
+4. When you are done, upload your .Rmd file and the output file (pdf or html file) in the area for it at the bottom of this quiz. 
+
+```{r, include = F}
+# LOAD THE PACKAGES YOU ARE USING IN THIS CODE CHUNK library(nameofpackage)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(broom)
+```
+
+# Theory part [10 points in total]
+Questions 1 and 2: Answer in Moodle directly (no need for code here).
+
+# RMarkdown part - (A)Political Constituency Development Funds Evidence from Pakistan [90 points in total]
+
+Open the replication dataset for Malik's paper that we read this week (filename: Malik_Pakistan_CDF_replicationData.csv, provided on Moodle). Here is a list of some of the relevant variables, along with their names in the paper:
+
+- Fund Access % (fund_perc)
+- Margin of Victory (Ruling Party) (Ruling_Party_Margin)
+- Ruling Party (same_party) 
+- Previous MNA (Previous_MNA)
+- Previous MNA Terms (Previous_MNA_Terms) 
+- Federal Minister (Min_CurrentOrPast)
+- Federal Minister Imp. (Min_CurrentOrPast_Imp) 
+- Election Year (Election_Year)
+- Turnout (Turnout_perc)
+- Num. Registered Voters (Reg_Voters)
+- Num. Candidates (Num_Cand)
+- Effective Num. Parties (ENP_Method1)
+
+
+With these data, perform the following tasks:
+
+3.  Does this paper employ a sharp or fuzzy RDD? [5 points] 
+Answer in Moodle directly.
+
+4. Visualize the data by generating (using ggplot) a plot similar to Figure 1 in the paper. However, you should plot just the underlying data (not the bins and not the regression lines). Make sure that the Ruling Party Margin is on the x-axis and the Fund percentage on the y-axis. Make the ruling party legislators one color and the other legislators a different color. Provide a vertical dotted line at the 0.00 mark. Also make sure that your plot is clearly labelled (i.e., axes, legends, etc.) Use the entire dataset to generate your plot.[10 points] 
+
+```{r}
+df <- read.csv("local/Malik_Pakistan_CDF_replicationData.csv")
+
+fig1 <- ggplot2::ggplot(data=df, aes(x=Ruling_Party_Margin, 
+                             y=fund_perc, 
+                             color=factor(same_party))) +
+  geom_point() +
+  geom_vline(xintercept=0, linetype="dotted") +
+  xlim(min=-0.66,max=0.66) +
+  labs(
+    title = "Effect of Ruling Party Legislator on Fund Access",
+    caption = "4-A",
+    x = "(Ruling party) margin of victory",
+    y = "Fund Percentage"
+  ) +
+  scale_color_manual(values = c("#999999", "#56B4E9"),
+                     labels=c("Not in Ruling Party","Ruling Party")) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position="top",
+        legend.justification = "right",
+        legend.margin = margin(t = -16, unit = "pt"),
+        legend.key.size = unit(8,"pt"),
+        panel.border = element_rect(color = "black", fill=NA))
+
+fig1
+
+ggsave(path="local/",
+       filename="fig1_q4.png",
+       bg="white")
+```
+
+
+
+5. Calculate a naïve estimate of the effect of being a ruling party legislator on fund percentage. What is the estimate? In no more than one sentence, interpret this estimate. [10 points] 
+
+```{r}
+nve_est <- lm(fund_perc ~ same_party, data=df)
+tidy(nve_est)[2,"estimate"] %>%
+  knitr::kable(col.names = "Naïve Average Treatment Effect") %>%
+  kableExtra::kable_styling(full_width=F, position="left")
+```
+
+
+
+6.  Reduce the dataset to a sample containing only the units within **± 0.1** from the threshold, and then estimate the LATE at the threshold using a **linear model with common slopes** with `lm()`. Provide a plot in which you show the fitted curves and the underlying scatterplot of the data.[10 points]
+
+```{r}
+df_rd <- df %>%
+  filter(abs(Ruling_Party_Margin) <= 0.1)
+
+linear_common_slope <- lm(fund_perc ~ same_party + Ruling_Party_Margin, data=df_rd)
+
+df_rd$yhat_linear <- predict(linear_common_slope)
+lcs <- ggplot2::ggplot(data=df_rd, aes(x=Ruling_Party_Margin, 
+                             y=yhat_linear, 
+                             color=factor(same_party))) +
+  geom_point(aes(x = Ruling_Party_Margin, 
+                 y = fund_perc,
+                 col = factor(same_party))) +
+  geom_vline(xintercept=0, linetype="dotted") +
+  geom_line(data = df_rd[df_rd$Ruling_Party_Margin >= 0,], 
+            color = "#cc0055",
+            size = 1) +
+  geom_line(data = df_rd[df_rd$Ruling_Party_Margin < 0,], 
+            color = "#696969",
+            size = 1) +
+  labs(
+    title = "Effect of Ruling Party Legislator on Fund Access",
+    caption = "6-A",
+    x = "(Ruling party) margin of victory",
+    y = "Fund Percentage"
+  ) +
+  scale_color_manual(values = c("#999999", "#56B4E9"),
+                     labels=c("Not in Ruling Party","Ruling Party")) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position="top",
+        legend.justification = "right",
+        legend.margin = margin(t = -16, unit = "pt"),
+        legend.key.size = unit(8,"pt"),
+        panel.border = element_rect(color = "black", fill=NA))
+
+lcs
+
+ggsave(path="local/",
+       filename="lcs_q6.png",
+       bg="white")
+```
+
+
+7. Using the entire dataset, replicate Equation 1 on p. 9 of the paper. Does your coefficient estimate on the base term of Ruling Party Legislator match Model 3 on p. 10? Provide a plot in which you show the fitted curves and the underlying scatterplot of the data. [10 points]
+
+```{r}
+quad <- lm(fund_perc ~ same_party +
+             Ruling_Party_Margin +
+             I(Ruling_Party_Margin * same_party) +
+             I(Ruling_Party_Margin^2) +
+             I(Ruling_Party_Margin^2 * same_party) +
+             I(Ruling_Party_Margin^3) +
+             I(Ruling_Party_Margin^3 * same_party), data=df)
+
+# Yes my formula matches the coefficients for model 3 (32.59 w/11.8 SE and < 0.01 p)
+
+df$yhat_quad <- predict(quad)
+quad_plot <- ggplot2::ggplot(data=df, aes(x=Ruling_Party_Margin, 
+                             y=yhat_quad, 
+                             color=factor(same_party))) +
+  geom_point(aes(x = Ruling_Party_Margin, 
+                 y = fund_perc,
+                 col = factor(same_party))) +
+  geom_vline(xintercept=0, linetype="dotted") +
+  geom_line(data = df[df$Ruling_Party_Margin >= 0,], 
+            color = "#cc0055",
+            size = 1) +
+  geom_line(data = df[df$Ruling_Party_Margin < 0,], 
+            color = "#696969",
+            size = 1) +
+  labs(
+    title = "Effect of Ruling Party Legislator on Fund Access",
+    caption = "7-A",
+    x = "(Ruling party) margin of victory",
+    y = "Fund Percentage"
+  ) +
+  scale_color_manual(values = c("#999999", "#56B4E9"),
+                     labels=c("Not in Ruling Party","Ruling Party")) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.position="top",
+        legend.justification = "right",
+        legend.margin = margin(t = -16, unit = "pt"),
+        legend.key.size = unit(8,"pt"),
+        panel.border = element_rect(color = "black", fill=NA))
+
+quad_plot
+
+ggsave(path="local/",
+       filename="quadplot_q7.png",
+       bg="white")
+```
+
+8. Based on the model in Q7, calculate the estimated fund percentage received by a ruling party legislator who won by a margin of 0.05 in his district. What is this percentage? [10 points]
+
+```{r}
+
+legislate <- tibble(same_party=1,Ruling_Party_Margin=0.05)
+tidy(predict(quad,legislate))["x"]
+
+```
+
+9. Now estimate, **with the full dataset**, the LATE at the threshold using a local linear regression with `rdrobust::rdrobust()`. Use the defaults (`kernel = "tri"` and `bwselect = mserd`). Have rdrobust automatically choose the optimal bandwidth (this is the default option). Print your findings. Report the conventional coefficient estimate?[15 points]
+```{r}
+linear_rdrobust <- rdrobust::rdrobust(df$fund_perc, 
+                                         df$Ruling_Party_Margin,  
+                                         c = 0,
+                                         kernel = "tri",
+                                         bwselect = "mserd")
+summary(linear_rdrobust)
+#29.618 & 10.886 SE
+```
+
+10. Using the same local linear regression you run last question, do an rdplot() to show your findings graphically. Use the default options in rdplot(),  [10 points]
+
+```{r}
+rd_plot <- rdrobust::rdplot(df$fund_perc, 
+                 df$Ruling_Party_Margin,
+                 c = 0,
+                 p = 1,
+                 kernel = "tri",
+                 title = "Effect of Ruling Party Legislator on Fund Access",
+                 x.label = "(Ruling party) margin of victory",
+                 y.label = "Fund Percentage"
+)
+
+png(filename="local/rdplot_q10.png")
+print(rd_plot)
+dev.off()
+```
+
+11. Estimate Model 2 using the bandwidth specified in the paper (i.e., do not let rdrobust optimize the bandwidth). Do your coefficient estimates match the ones in the paper? Why do you think the estimates are different from part g)? Can you find any potential explanation for this in the paper? [10 points]
+
+```{r}
+paper_rdrobust <- rdrobust::rdrobust(df$fund_perc, 
+                                         df$Ruling_Party_Margin,  
+                                         c = 0,
+                                         h = 0.108,
+                                         kernel = "tri",
+                                         bwselect = "mserd")
+summary(paper_rdrobust)
+
+# The estimates are different because the bandwidth used in the point estimation is larger in part g (h=0.112,b=0.201) than in the paper (h=0.108,b=0.108). This could be because the author used one of the other functions outside of mserd or the paper was adjusted.
+```
+
+
+---
+
+### Task 3 - Statistics inspired meme [1 bonus point]
+
+12.  The memes are back! Create a stats-inspired meme using an **R** meme dedicated package to earn one bonus percentage point!
+
+```{r}
+
+```
+
+
+### Upload me to Moodle, please
+
+13. Remember to upload the .Rmd file and the output file (pdf or html) at the bottom of the quiz. 
+
