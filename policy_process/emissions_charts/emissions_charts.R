@@ -125,6 +125,11 @@ rm(list=c("g77_countries",
           "oecd_country"))
 
 #### 2. Distribution of Development Categories ####
+cbp1 <- c("#56B4E9", "#999999", "#999999", "#999999",
+          "#999999", "#D55E00", "#F0E442", "#CC79A7")
+
+cbp1r <- c("#56B4E9", "#999999", "#E69F00", "#009E73",
+          "#0072B2", "#D55E00", "#F0E442", "#CC79A7")
 
 df_dist <- df_r %>%
   group_by(n_dev_cats) %>%
@@ -135,17 +140,20 @@ ggplot2::ggplot(df_dist, aes(y=as.factor(n_dev_cats),
                              fill=as.factor(n_dev_cats))) +
   geom_bar(stat="identity") +
   scale_y_discrete(limits=rev) +
-  labs(y = "\"Global South\" Categories",
+  scale_fill_manual(values=cbp1) +
+  labs(title = "How Many GS Categories Does a Country Fit In?",
+       y = "# Categories",
        x = "Countries") +
   theme_minimal() +
   theme(legend.position = "None",
         panel.grid.minor.x = element_blank(),
         axis.title = element_text(size = 20),
-        axis.text = element_text(size = 20))
+        axis.text = element_text(size = 20),
+        axis.text.y = element_text(margin=margin(0,-20,0,20,"pt")),
+        panel.grid.major.y= element_blank(),
+        title = element_text(size=20))
 
 #### 3. Category by Absolute CO2 by Year ####
-cbp1 <- c("#56B4E9", "#999999", "#E69F00", "#009E73",
-          "#0072B2", "#D55E00", "#F0E442", "#CC79A7")
 
 df_south <- df_r %>%
   pivot_longer(col=c("south_oecd","south_g77","south_hdi","south_wb","south_annex1")) %>%
@@ -181,8 +189,10 @@ abs_line
 
 #### 4. Per Capita Distributions ####
 
+cbp1_bp <- c("#56B4E9","#D55E00", "#F0E442", "#CC79A7")
+
 # Boxplot 
-capita_boxplot <- ggplot2::ggplot(df_newold, 
+capita_boxplot <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)), 
                                   aes(x=paste(n_dev_cats,year), 
                                       y=co2_per_capita,
                                       color=as.factor(n_dev_cats))) +
@@ -192,7 +202,9 @@ capita_boxplot <- ggplot2::ggplot(df_newold,
   geom_vline(xintercept=6.5, linetype="dashed") +
   geom_vline(xintercept=8.5, linetype="dashed") +
   geom_vline(xintercept=10.5, linetype="dashed") +
-  scale_color_manual(name="Number Categories", values=cbp1) +
+  scale_color_manual(name="", 
+                     labels=c("Global North (0)", "Global South (5)"), 
+                     values=cbp1_bp) +
   scale_x_discrete(label=c("1990","2019",
                            "1990","2019",
                            "1990","2019",
@@ -200,7 +212,7 @@ capita_boxplot <- ggplot2::ggplot(df_newold,
                            "1990","2019",
                            "1990","2019")) +
   labs(title = "Distribution of CO2 Tonnes Per Capita",
-       subtitle = "by \"Global South\" categories and year",
+       subtitle = "Comparison Global North & Global South",
        x = "",
        y = "") +
   theme_minimal() +
@@ -212,10 +224,8 @@ capita_boxplot <- ggplot2::ggplot(df_newold,
         legend.text = element_text(size=12),
         axis.text = element_text(hjust=0.5))
 
-capita_boxplot
-
 # Abs CO2
-abs_bar <- ggplot2::ggplot(df_newold, 
+abs_bar <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)), 
                 aes(x=paste(n_dev_cats,year), y=(co2/1000))) +
   geom_col(aes(fill=as.factor(n_dev_cats))) +
   geom_vline(xintercept=2.5, linetype="dashed") +
@@ -223,7 +233,7 @@ abs_bar <- ggplot2::ggplot(df_newold,
   geom_vline(xintercept=6.5, linetype="dashed") +
   geom_vline(xintercept=8.5, linetype="dashed") +
   geom_vline(xintercept=10.5, linetype="dashed") +
-  scale_fill_manual(values=cbp1) +
+  scale_fill_manual(values=cbp1_bp) +
   labs(title = "CO2 Production (B)",
        x = "",
        y = "") +
@@ -253,7 +263,7 @@ scatter_1990 <- ggplot2::ggplot(df_newold %>%
        color = "# Development Categories",
        size = "Cumulative CO2") +
   theme(legend.position = "None",
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5, size=15))
 
 scatter_2019 <- ggplot2::ggplot(df_newold %>%
                                   filter(year==2019),
@@ -267,11 +277,12 @@ scatter_2019 <- ggplot2::ggplot(df_newold %>%
   theme_minimal() +
   labs(title = "2019",
        x = expression(CO[2]*" Per Capita"),
-       y = expression("Pct Global "*CO[2]*" Output"),
+       y="",
+       #y = expression("Pct Global "*CO[2]*" Output"),
        color = "# Development Categories",
        size = "Cumulative CO2") +
   theme(legend.position = "None",
-    plot.title = element_text(hjust = 0.5))
+    plot.title = element_text(hjust = 0.5, size=15))
 
 plot_grid(scatter_1990,scatter_2019)
 
