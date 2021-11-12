@@ -196,12 +196,12 @@ capita_boxplot <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)),
                                   aes(x=paste(n_dev_cats,year), 
                                       y=co2_per_capita,
                                       color=as.factor(n_dev_cats))) +
-  geom_boxplot(outlier.color = "red") +
+  geom_boxplot(outlier.color = "#87b028") +
   geom_vline(xintercept=2.5, linetype="dashed") +
-  geom_vline(xintercept=4.5, linetype="dashed") +
-  geom_vline(xintercept=6.5, linetype="dashed") +
-  geom_vline(xintercept=8.5, linetype="dashed") +
-  geom_vline(xintercept=10.5, linetype="dashed") +
+  #geom_vline(xintercept=4.5, linetype="dashed") +
+  #geom_vline(xintercept=6.5, linetype="dashed") +
+  #geom_vline(xintercept=8.5, linetype="dashed") +
+  #geom_vline(xintercept=10.5, linetype="dashed") +
   scale_color_manual(name="", 
                      labels=c("Global North (0)", "Global South (5)"), 
                      values=cbp1_bp) +
@@ -211,8 +211,8 @@ capita_boxplot <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)),
                            "1990","2019",
                            "1990","2019",
                            "1990","2019")) +
-  labs(title = "Distribution of CO2 Tonnes Per Capita",
-       subtitle = "Comparison Global North & Global South",
+  labs(title = expression("Distribution of "*CO[2]*" Tonnes Per Capita"),
+       subtitle = "Global North & Global South (1990-2019)",
        x = "",
        y = "") +
   theme_minimal() +
@@ -221,7 +221,7 @@ capita_boxplot <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)),
         legend.direction = "horizontal",
         legend.justification = "right",
         legend.margin = margin(-25,40,0,0),
-        legend.text = element_text(size=12),
+        legend.text = element_text(size=10),
         axis.text = element_text(hjust=0.5))
 
 # Abs CO2
@@ -229,12 +229,12 @@ abs_bar <- ggplot2::ggplot(df_newold %>% filter(n_dev_cats %in% c(0,5)),
                 aes(x=paste(n_dev_cats,year), y=(co2/1000))) +
   geom_col(aes(fill=as.factor(n_dev_cats))) +
   geom_vline(xintercept=2.5, linetype="dashed") +
-  geom_vline(xintercept=4.5, linetype="dashed") +
-  geom_vline(xintercept=6.5, linetype="dashed") +
-  geom_vline(xintercept=8.5, linetype="dashed") +
-  geom_vline(xintercept=10.5, linetype="dashed") +
+  #geom_vline(xintercept=4.5, linetype="dashed") +
+  #geom_vline(xintercept=6.5, linetype="dashed") +
+  #geom_vline(xintercept=8.5, linetype="dashed") +
+  #geom_vline(xintercept=10.5, linetype="dashed") +
   scale_fill_manual(values=cbp1_bp) +
-  labs(title = "CO2 Production (B)",
+  labs(title = expression(CO[2]*" Production (B Tonnes)"),
        x = "",
        y = "") +
   theme_minimal() +
