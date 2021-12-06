@@ -10,4 +10,8 @@ class assignment.
 
 ### Stats 2
 
-Content related to my Fall 2021 Statistics 2 class and lab
+Content related to my Fall21 Statistics 2 class and lab
+
+### Policy Process
+
+Files related to my Fall21 "Policy Process" class
